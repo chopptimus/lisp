@@ -1,10 +1,17 @@
+#include <stdlib.h>
+
 enum Type {
     Number,
     Symbol,
     List
 };
 
-struct ParseTree {
+typedef struct ParseTree {
     enum Type type;
     struct ParseTree *children;
-};
+} ParseTree;
+
+typedef struct {
+    size_t size;
+    char **tokens;
+} Tokens;
