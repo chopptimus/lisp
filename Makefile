@@ -1,8 +1,8 @@
 CC=gcc
 CFLAGS=-Wall
 
-clispy: clispy.o
-	$(CC) -o clispy clispy.o
+lisp: lisp.o
+	$(CC) -o lisp lisp.o
 
-clispy.o: clispy.c
-	$(CC) -c clispy.c
+lisp.o: lisp.c
+	$(CC) -c lisp.c

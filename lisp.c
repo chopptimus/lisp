@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "clispy.h"
+#include "lisp.h"
 
 char *capture_token(const char *s, size_t n) {
     char *tok = malloc(sizeof(char) * (n + 1));
