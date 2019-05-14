@@ -41,10 +41,25 @@ struct Tokens tokenize(const char *s, size_t n) {
 
 void atom_repr(Atom *atom) {
     if (atom->type == Number) {
-        printf("Number %d\n", *(int *)atom->data);
+        printf("%d", *(int *)atom->data);
     } else if (atom->type == Symbol) {
-        printf("Symbol %s\n", (char *)atom->data);
+        printf("%s", (char *)atom->data);
     }
+}
+
+void list_repr(const List *list) {
+    if (list == NULL) {
+        printf("'()");
+    }
+    printf("(");
+    atom_repr(list->first);
+    list = list->rest;
+    while (list != NULL) {
+        printf(" ");
+        atom_repr(list->first);
+        list = list->rest;
+    }
+    printf(")");
 }
 
 Atom *parse_atom(Atom *atom, const char *token) {
@@ -65,46 +80,61 @@ Atom *parse_atom(Atom *atom, const char *token) {
 }
 
 List *parse_list(List *list, char **tokens, size_t n) {
-    if (strcmp(tokens[0], "(") != 0) {
-        printf("Syntax error.");
+    if (n < 2) {
+        printf("List must have at least 2 tokens.\n");
+        exit(1);
+    } else if (strcmp(tokens[0], "(") != 0) {
+        printf("List must start with an open paren.\n");
+        exit(1);
+    } else if (strcmp(tokens[1], ")") == 0) {
+        list = NULL;
+        return list;
+    } else if (n < 3) {
+        printf("If list isn't empty, it must contain at least 3 tokens\n");
+        exit(1);
+    }
+    List *head = list;
+
+    Atom *a = malloc(sizeof(Atom));
+    list->first = parse_atom(a, tokens[1]);
+    list->rest = NULL;
+
+    char *token = tokens[2];
+    int i = 2;
+    while (strcmp(token, ")") != 0) {
+        list->rest = malloc(sizeof(List));
+        list = list->rest;
+        a = malloc(sizeof(Atom));
+        list->first = parse_atom(a, token);
+        list->rest = NULL;
+
+        i++;
+        if (i == n) {
+            // Reaching the end of the input without a closing paren is an error.
+            printf("No closing paren.\n");
+            exit(1);
+        }
+        token = tokens[i];
+    }
+
+    // It's a syntax error if there's any input left.
+    if (i + 1 != n) {
+        printf("There is still more input to parse.\n");
         exit(1);
     }
 
-    Atom *first;
-    first = malloc(sizeof(Atom));
-    list->first = parse_atom(first, tokens[1]);
-    list->rest = NULL;
-
-    char *next = tokens[2];
-    int i = 3;
-    List *rest;
-    while (strcmp(next, ")") != 0) {
-        if (i == n) {
-            printf("Syntax error.");
-            exit(1);
-        }
-        first = malloc(sizeof(Atom));
-        list->first = parse_atom(first, tokens[i]);
-        printf("%d\n", strcmp(next, ")"));
-        atom_repr(first);
-        rest = malloc(sizeof(List));
-        list->rest = rest;
-        list = rest;
-        next = tokens[i];
-        i++;
-    }
-    return list;
+    return head;
 }
 
 // Homoiconicity and all that.
 List *parse(const char *program, size_t n) {
+    if (n == 0) {
+        exit(0);
+    }
+
     struct Tokens ts = tokenize(program, n);
     char **tokens = ts.tokens;
     char size = ts.size;
-
-    if (size == 0) {
-        exit(0);
-    }
 
     List *list = malloc(sizeof(List));
     return parse_list(list, tokens, size);
@@ -123,5 +153,5 @@ int main(int args, char *argv[]) {
     program[fsize] = 0;
 
     List *list = parse(program, fsize);
-    atom_repr(list->first);
+    list_repr(list);
 }
