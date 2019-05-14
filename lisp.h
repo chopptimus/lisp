@@ -1,30 +1,47 @@
 #include <stdlib.h>
 
-// Just a list of tokens for parsing into an AST.
-struct Tokens {
-    size_t size;
+// Keeps track of how much we've read.
+typedef struct tokens {
     char **tokens;
-};
+    size_t size;
+    size_t head;
+} Tokens;
 
 // Types that an atom can be.
-enum Type {
-    Number,
-    String,
-    Symbol
+enum atom_type {
+    NUMBER,
+    STRING,
+    SYMBOL
 };
 
 // Number, string or symbol.
-typedef struct {
-    enum Type type;
-    void *data;
+typedef struct atom {
+    enum atom_type type;
+    union {
+        int ival;
+        char *sval;
+    } value;
 } Atom;
 
+struct expr;
+
 // This is a lisp after all.
-typedef struct List {
-    Atom *first;
-    struct List *rest;
+typedef struct list {
+    struct expr *first;
+    struct list *rest;
 } List;
 
+enum exprtype { ATOM, LIST };
+
+// Everything is either a list or an atom.
+typedef struct expr {
+    enum exprtype type;
+    union {
+        Atom *aval;
+        List *lval;
+    } value;
+} Expr;
+
 // Holds information about the symbols.
-typedef struct {
+typedef struct environment {
 } Environment;

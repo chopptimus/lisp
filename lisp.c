@@ -4,6 +4,116 @@
 #include <string.h>
 #include "lisp.h"
 
+#define thead(t) t->tokens[t->head]
+
+void atom_repr(Atom *atom) {
+    if (atom->type == NUMBER) {
+        printf("%d", atom->value.ival);
+    } else if (atom->type == SYMBOL) {
+        printf("%s", atom->value.sval);
+    }
+}
+
+void list_repr(const List *list) {
+    if (list == NULL) {
+        printf("'()");
+    }
+    printf("(");
+
+    if (list->first->type == ATOM)
+        atom_repr(list->first->value.aval);
+    else
+        list_repr(list->first->value.lval);
+
+    list = list->rest;
+    while (list != NULL) {
+        printf(" ");
+        if (list->first->type == ATOM)
+            atom_repr(list->first->value.aval);
+        else
+            list_repr(list->first->value.lval);
+        list = list->rest;
+    }
+
+    printf(")");
+}
+
+Atom *parse_atom(Atom *atom, const char *token) {
+    if isdigit(token[0]) {
+        atom->type = NUMBER;
+        atom->value.ival = atoi(token);
+    } else {
+        atom->type = SYMBOL;
+        size_t len = strlen(token);
+        char *symbol = malloc(sizeof(char) * (len + 1));
+        strcpy(symbol, token);
+        atom->value.sval = symbol;
+    }
+
+    return atom;
+}
+
+List *parse_list(List *list, Tokens *tokens);
+
+Expr *parse_expr(Expr *expr, Tokens *tokens) {
+    if (strcmp(thead(tokens), "(") == 0) {
+        List *list = malloc(sizeof(List));
+        list = parse_list(list, tokens);
+        expr->type = LIST;
+        expr->value.lval = list;
+    } else {
+        Atom *atom = malloc(sizeof(Atom));
+        atom = parse_atom(atom, thead(tokens));
+        tokens->head += 1;
+        expr->type = ATOM;
+        expr->value.aval = atom;
+    }
+    return expr;
+}
+
+List *parse_list(List *list, Tokens *tokens) {
+    if (tokens->size < 2) {
+        printf("List must have at least 2 tokens.\n");
+        exit(1);
+    } else if (strcmp(thead(tokens), "(") != 0) {
+        printf("List must start with an open paren.\n");
+        exit(1);
+    } else if (strcmp(thead(tokens), ")") == 0) {
+        list = NULL;
+        tokens->head += 2;
+        return list;
+    } else if (tokens->size < 3) {
+        printf("If list isn't empty, it must contain at least 3 tokens\n");
+        exit(1);
+    }
+    tokens->head++; // Opening paren.
+
+    List *first = list;
+    Expr *expr = malloc(sizeof(Expr));
+
+    first->first = parse_expr(expr, tokens);
+    first->rest = NULL;
+
+    char *token = thead(tokens);
+    while (strcmp(token, ")") != 0) {
+        first->rest = malloc(sizeof(List));
+        first = first->rest;
+        expr = malloc(sizeof(Expr));
+        first->first = parse_expr(expr, tokens);
+        first->rest = NULL;
+
+        if (tokens->head == tokens->size) {
+            // Reaching the end of the input without a closing paren is an error.
+            printf("No closing paren.\n");
+            exit(1);
+        }
+        token = thead(tokens);
+    }
+
+    tokens->head++; // Closing paren;
+    return list;
+}
+
 char *capture_token(const char *s, size_t n) {
     char *tok = malloc(sizeof(char) * (n + 1));
     strncpy(tok, s, n);
@@ -11,7 +121,7 @@ char *capture_token(const char *s, size_t n) {
     return tok;
 }
 
-struct Tokens tokenize(const char *s, size_t n) {
+Tokens tokenize(const char *s, size_t n) {
     char **tokens = malloc(sizeof(char *) * n);
     int j = 0;
     int start = 0;
@@ -34,110 +144,25 @@ struct Tokens tokenize(const char *s, size_t n) {
             start = i + 1;
         }
     }
+    if (start != n) {
+        tokens[j] = capture_token(&s[start], n - start - 1);
+        j++;
+    }
 
     tokens = realloc(tokens, sizeof(char *) * j);
-    return (struct Tokens) { j, tokens };
-}
-
-void atom_repr(Atom *atom) {
-    if (atom->type == Number) {
-        printf("%d", *(int *)atom->data);
-    } else if (atom->type == Symbol) {
-        printf("%s", (char *)atom->data);
-    }
-}
-
-void list_repr(const List *list) {
-    if (list == NULL) {
-        printf("'()");
-    }
-    printf("(");
-    atom_repr(list->first);
-    list = list->rest;
-    while (list != NULL) {
-        printf(" ");
-        atom_repr(list->first);
-        list = list->rest;
-    }
-    printf(")");
-}
-
-Atom *parse_atom(Atom *atom, const char *token) {
-    if isdigit(token[0]) {
-        atom->type = Number;
-        int *number = malloc(sizeof(int));
-        *number = atoi(token);
-        atom->data = number;
-    } else {
-        atom->type = Symbol;
-        size_t len = strlen(token);
-        char *symbol = malloc(sizeof(char) * (len + 1));
-        strcpy(symbol, token);
-        atom->data = symbol;
-    }
-
-    return atom;
-}
-
-List *parse_list(List *list, char **tokens, size_t n) {
-    if (n < 2) {
-        printf("List must have at least 2 tokens.\n");
-        exit(1);
-    } else if (strcmp(tokens[0], "(") != 0) {
-        printf("List must start with an open paren.\n");
-        exit(1);
-    } else if (strcmp(tokens[1], ")") == 0) {
-        list = NULL;
-        return list;
-    } else if (n < 3) {
-        printf("If list isn't empty, it must contain at least 3 tokens\n");
-        exit(1);
-    }
-    List *head = list;
-
-    Atom *a = malloc(sizeof(Atom));
-    list->first = parse_atom(a, tokens[1]);
-    list->rest = NULL;
-
-    char *token = tokens[2];
-    int i = 2;
-    while (strcmp(token, ")") != 0) {
-        list->rest = malloc(sizeof(List));
-        list = list->rest;
-        a = malloc(sizeof(Atom));
-        list->first = parse_atom(a, token);
-        list->rest = NULL;
-
-        i++;
-        if (i == n) {
-            // Reaching the end of the input without a closing paren is an error.
-            printf("No closing paren.\n");
-            exit(1);
-        }
-        token = tokens[i];
-    }
-
-    // It's a syntax error if there's any input left.
-    if (i + 1 != n) {
-        printf("There is still more input to parse.\n");
-        exit(1);
-    }
-
-    return head;
+    return (Tokens) { tokens, j, 0 };
 }
 
 // Homoiconicity and all that.
-List *parse(const char *program, size_t n) {
+Expr *parse(const char *program, size_t n) {
     if (n == 0) {
         exit(0);
     }
 
-    struct Tokens ts = tokenize(program, n);
-    char **tokens = ts.tokens;
-    char size = ts.size;
+    Tokens tokens = tokenize(program, n);
 
-    List *list = malloc(sizeof(List));
-    return parse_list(list, tokens, size);
+    Expr *expr = malloc(sizeof(Expr));
+    return parse_expr(expr, &tokens);
 }
 
 int main(int args, char *argv[]) {
@@ -152,6 +177,11 @@ int main(int args, char *argv[]) {
 
     program[fsize] = 0;
 
-    List *list = parse(program, fsize);
-    list_repr(list);
+    Expr *expr = parse(program, fsize);
+    if (expr->type == LIST) {
+        list_repr(expr->value.lval);
+    } else {
+        atom_repr(expr->value.aval);
+    }
+    printf("\n");
 }
