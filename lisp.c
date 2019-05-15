@@ -154,7 +154,7 @@ Tokens tokenize(const char *s, size_t n) {
     }
 
     tokens = realloc(tokens, sizeof(char *) * j);
-    return (Tokens) { tokens, j, 0 };
+    return (Tokens) { .tokens = tokens, .size = j, .head = 0 };
 }
 
 // Homoiconicity and all that.
