@@ -14,28 +14,32 @@ void atom_repr(Atom *atom) {
     }
 }
 
+void repr(const Expr *expr);
+
 void list_repr(const List *list) {
     if (list == NULL) {
         printf("'()");
     }
     printf("(");
 
-    if (list->first->type == ATOM)
-        atom_repr(list->first->value.aval);
-    else
-        list_repr(list->first->value.lval);
+    repr(list->first);
 
     list = list->rest;
     while (list != NULL) {
         printf(" ");
-        if (list->first->type == ATOM)
-            atom_repr(list->first->value.aval);
-        else
-            list_repr(list->first->value.lval);
+        repr(list->first);
         list = list->rest;
     }
 
     printf(")");
+}
+
+void repr(const Expr *expr) {
+    if (expr->type == LIST) {
+        list_repr(expr->value.lval);
+    } else {
+        atom_repr(expr->value.aval);
+    }
 }
 
 Atom *parse_atom(Atom *atom, const char *token) {
@@ -178,10 +182,6 @@ int main(int args, char *argv[]) {
     program[fsize] = 0;
 
     Expr *expr = parse(program, fsize);
-    if (expr->type == LIST) {
-        list_repr(expr->value.lval);
-    } else {
-        atom_repr(expr->value.aval);
-    }
+    repr(expr);
     printf("\n");
 }
