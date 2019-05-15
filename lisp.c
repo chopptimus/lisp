@@ -43,7 +43,7 @@ void repr(const Expr *expr) {
 }
 
 Atom *parse_atom(Atom *atom, const char *token) {
-    if isdigit(token[0]) {
+    if (isdigit(token[0])) {
         atom->type = NUMBER;
         atom->value.ival = atoi(token);
     } else {
