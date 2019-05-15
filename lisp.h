@@ -37,9 +37,9 @@ enum exprtype { ATOM, LIST };
 typedef struct expr {
     enum exprtype type;
     union {
-        Atom *aval;
-        List *lval;
-    } value;
+        Atom *aexpr;
+        List *lexpr;
+    } expr;
 } Expr;
 
 // Holds information about the symbols.

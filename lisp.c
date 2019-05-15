@@ -36,9 +36,9 @@ void list_repr(const List *list) {
 
 void repr(const Expr *expr) {
     if (expr->type == LIST) {
-        list_repr(expr->value.lval);
+        list_repr(expr->expr.lexpr);
     } else {
-        atom_repr(expr->value.aval);
+        atom_repr(expr->expr.aexpr);
     }
 }
 
@@ -64,13 +64,13 @@ Expr *parse_expr(Expr *expr, Tokens *tokens) {
         List *list = malloc(sizeof(List));
         list = parse_list(list, tokens);
         expr->type = LIST;
-        expr->value.lval = list;
+        expr->expr.lexpr = list;
     } else {
         Atom *atom = malloc(sizeof(Atom));
         atom = parse_atom(atom, thead(tokens));
         tokens->head += 1;
         expr->type = ATOM;
-        expr->value.aval = atom;
+        expr->expr.aexpr = atom;
     }
     return expr;
 }
