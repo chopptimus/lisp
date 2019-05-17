@@ -150,6 +150,17 @@ Object *read(Object *obj, Tokens *tokens)
     return obj;
 }
 
+Object *apply(List *list);
+
+Object *eval(Object *obj)
+{
+    if (obj->type != LIST) {
+        return obj;
+    } else {
+        return apply(obj->list_val);
+    }
+}
+
 int main(int args, char *argv[])
 {
     if (args != 2)
