@@ -12,7 +12,8 @@ typedef enum type {
     NUMBER,
     STRING,
     SYMBOL,
-    LIST
+    LIST,
+    FUNCTION
 } Type;
 
 struct object;

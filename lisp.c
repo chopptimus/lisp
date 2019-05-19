@@ -40,6 +40,8 @@ void repr(const Object *obj)
         case STRING:
             printf("%s", obj->str_val);
             break;
+        case FUNCTION:
+            printf("fn");
     }
 }
 
@@ -150,14 +152,23 @@ Object *read(Object *obj, Tokens *tokens)
     return obj;
 }
 
-Object *apply(List *list);
+Object *eval(Object *obj);
+
+Object *apply(Object *result, Object *fn, List *list)
+{
+}
 
 Object *eval(Object *obj)
 {
-    if (obj->type != LIST) {
-        return obj;
+    if (obj->type == LIST) {
+        Object *fn = eval(obj->list_val->first);
+        if (fn->type != FUNCTION) {
+            printf("Not a function.\n");
+        }
+        Object *result = malloc(sizeof(Object));
+        return apply(result, fn, obj->list_val->rest);
     } else {
-        return apply(obj->list_val);
+        return obj;
     }
 }
 
