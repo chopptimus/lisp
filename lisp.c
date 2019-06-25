@@ -152,16 +152,18 @@ Object *read(Object *obj, Tokens *tokens)
     return obj;
 }
 
-Object *eval(Object *obj);
+Object *eval(Object *result, Object *obj, Environment *env);
 
-Object *apply(Object *result, Object *fn, List *list)
+Object *apply(Object *result, Object *fn, List *arguments)
 {
+    if (strcmp(fn->name, "+") == 0) {
+    }
 }
 
-Object *eval(Object *obj)
+Object *eval(Object *result, Object *obj, Environment *env)
 {
     if (obj->type == LIST) {
-        Object *fn = eval(obj->list_val->first);
+        Object *fn = eval(result, obj->list_val->first, env);
         if (fn->type != FUNCTION) {
             printf("Not a function.\n");
         }

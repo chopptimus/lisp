@@ -18,22 +18,27 @@ typedef enum type {
 
 struct object;
 
+// Holds information about the symbols.
+typedef struct environment {
+} Environment;
+
 // This is a lisp after all.
 typedef struct list {
     struct object *first;
     struct list *rest;
 } List;
 
-// Everything is either a list or an atom.
+typedef struct function {
+    Environment *env;
+    struct object *body;
+} Function;
+
 typedef struct object {
     Type type;
     union {
         int int_val;
         char *str_val;
         List *list_val;
+        Function *func_val;
     };
 } Object;
-
-// Holds information about the symbols.
-typedef struct environment {
-} Environment;
