@@ -1,8 +1,8 @@
 CC=gcc
-CFLAGS=-Wall
+CFLAGS=-Wall -g
 
 lisp: lisp.o
-	$(CC) -o lisp lisp.o
+	$(CC) $(CFLAGS) -o lisp lisp.o
 
 lisp.o: lisp.c
-	$(CC) -c lisp.c
+	$(CC) $(CFLAGS) -c lisp.c

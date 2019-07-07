@@ -6,6 +6,9 @@
 
 #define THEAD(t) t->tokens[t->head]
 
+#define car(l) l->list_val->first
+#define cdr(l) l->list_val->rest
+
 void repr(const Object *obj);
 
 void list_repr(const List *list)
@@ -27,6 +30,27 @@ void list_repr(const List *list)
     printf(")");
 }
 
+void repr_type(const Object *obj)
+{
+    switch (obj->type) {
+        case LIST:
+            printf("LIST\n");
+            break;
+        case FUNCTION:
+            printf("FUNCTION\n");
+            break;
+        case NUMBER:
+            printf("NUMBER\n");
+            break;
+        case STRING:
+            printf("STRING\n");
+            break;
+        case SYMBOL:
+            printf("SYMBOL\n");
+            break;
+    }
+}
+
 void repr(const Object *obj)
 {
     switch (obj->type) {
@@ -37,6 +61,8 @@ void repr(const Object *obj)
             printf("%d", obj->int_val);
             break;
         case SYMBOL:
+            printf("%s", obj->sym_val);
+            break;
         case STRING:
             printf("%s", obj->str_val);
             break;
@@ -146,31 +172,79 @@ Object *read(Object *obj, Tokens *tokens)
         char *symbol = malloc(sizeof(char) * (len + 1));
         strcpy(symbol, THEAD(tokens));
         symbol[len] = 0;
-        obj->str_val = symbol;
+        obj->sym_val = symbol;
         tokens->head++;
     }
     return obj;
 }
 
+Object *get(char *k, Table *t)
+{
+    KeyValue *keyval;
+    for (int i = 0; i < 20; i++) {
+        keyval = t->entries[i];
+        if (strcmp(keyval->key, k) == 0) {
+            return keyval->val;
+        }
+    }
+    return NULL;
+}
+
+Object *resolve(char *sym, Environment *env)
+{
+    Object *result = get(sym, env->table);
+    if (result == NULL) {
+        if (env->parent == NULL) {
+            printf("No binding for %s.\n", sym);
+            exit(1);
+        } else
+            return resolve(sym, env->parent);
+    } else
+        return result;
+}
+
+Object *plus(Object *result, List *args)
+{
+    int total = 0;
+    Object *first;
+    while (args) {
+        first = args->first;
+        if (first->type != NUMBER) {
+            printf("Args to + must be numbers.\n");
+            exit(1);
+        };
+        total += first->int_val;
+        args = args->rest;
+    }
+    result->type = NUMBER;
+    result->int_val = total;
+    return result;
+}
+
 Object *eval(Object *result, Object *obj, Environment *env);
 
-Object *apply(Object *result, Object *fn, List *arguments)
+Object *apply(Object *result, Function *fn, List *arguments)
 {
-    if (strcmp(fn->name, "+") == 0) {
-    }
+    return NULL;
 }
 
 Object *eval(Object *result, Object *obj, Environment *env)
 {
     if (obj->type == LIST) {
-        Object *fn = eval(result, obj->list_val->first, env);
+        Object *first = car(obj);
+        if (first->type == SYMBOL) {
+            if (strcmp(first->sym_val, "+") == 0) {
+                return plus(result, cdr(obj));
+            }
+        }
+
+        Object *fn = eval(result, first, env);
         if (fn->type != FUNCTION) {
             printf("Not a function.\n");
         }
-        Object *result = malloc(sizeof(Object));
-        return apply(result, fn, obj->list_val->rest);
-    } else {
-        return obj;
+        return apply(result, fn->fn_val, cdr(obj));
+    } else if (obj->type == SYMBOL) {
+        return resolve(obj->sym_val, env);
     }
 }
 
@@ -194,9 +268,24 @@ int main(int args, char *argv[])
     program[fsize] = 0;
 
     Tokens tokens = tokenize(program, fsize);
-    Object *obj = malloc(sizeof(Object));
-    obj = read(obj, &tokens);
+    Object obj;
+    read(&obj, &tokens);
 
-    repr(obj);
+    repr(&obj);
+    printf("\n");
+
+    Table table;
+    table.head = 0;
+    for (int i = 0; i < 20; i++) {
+        table.entries[i] = NULL;
+    }
+    Environment env;
+    env.table = &table;
+    env.parent = NULL;
+
+    Object result;
+    eval(&result, &obj, &env);
+
+    repr(&result);
     printf("\n");
 }
