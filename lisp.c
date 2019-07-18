@@ -30,7 +30,7 @@ void list_repr(const List *list)
     printf(")");
 }
 
-void repr_type(const Object *obj)
+void type_repr(const Object *obj)
 {
     switch (obj->type) {
         case LIST:
@@ -203,7 +203,15 @@ Object *resolve(char *sym, Environment *env)
         return result;
 }
 
-Object *plus(Object *result, List *args)
+List *cons(List *l, Object *o)
+{
+    List *new_list = malloc(sizeof(List));
+    new_list->first = o;
+    new_list->rest = l;
+    return new_list;
+}
+
+Object *plus(List *args)
 {
     int total = 0;
     Object *first;
@@ -216,36 +224,55 @@ Object *plus(Object *result, List *args)
         total += first->int_val;
         args = args->rest;
     }
+    Object *result = malloc(sizeof(Object));
     result->type = NUMBER;
     result->int_val = total;
     return result;
 }
 
-Object *eval(Object *result, Object *obj, Environment *env);
+Object *eval(Object *obj, Environment *env);
 
-Object *apply(Object *result, Function *fn, List *arguments)
+Object *apply(Function *fn, List *arguments)
 {
     return NULL;
 }
 
-Object *eval(Object *result, Object *obj, Environment *env)
+void eval_sequence(List *args, Environment *env)
+{
+    Object *first;
+    Object *result;
+    while (args) {
+        first = args->first;
+        result = eval(first, env);
+        type_repr(result);
+        args->first = result;
+        args = args->rest;
+    }
+}
+
+Object *eval(Object *obj, Environment *env)
 {
     if (obj->type == LIST) {
         Object *first = car(obj);
+        List *args = cdr(obj);
         if (first->type == SYMBOL) {
             if (strcmp(first->sym_val, "+") == 0) {
-                return plus(result, cdr(obj));
+                eval_sequence(args, env);
+                return plus(args);
             }
         }
 
-        Object *fn = eval(result, first, env);
+        Object *fn = eval(first, env);
         if (fn->type != FUNCTION) {
             printf("Not a function.\n");
         }
-        return apply(result, fn->fn_val, cdr(obj));
+        return apply(fn->fn_val, cdr(obj));
     } else if (obj->type == SYMBOL) {
         return resolve(obj->sym_val, env);
+    } else if (obj->type == NUMBER) {
+        return obj;
     }
+    return NULL;
 }
 
 int main(int args, char *argv[])
@@ -283,9 +310,8 @@ int main(int args, char *argv[])
     env.table = &table;
     env.parent = NULL;
 
-    Object result;
-    eval(&result, &obj, &env);
+    Object *result = eval(&obj, &env);
 
-    repr(&result);
+    repr(result);
     printf("\n");
 }
