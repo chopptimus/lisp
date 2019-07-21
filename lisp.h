@@ -9,7 +9,8 @@ typedef struct tokens {
 
 // Types that an atom can be.
 typedef enum type {
-    NUMBER,
+    LONG,
+    FLOAT,
     STRING,
     SYMBOL,
     LIST,
@@ -49,7 +50,8 @@ typedef struct function {
 typedef struct object {
     Type type;
     union {
-        int int_val;
+        int long_val;
+        float float_val;
         char *str_val;
         char *sym_val;
         List *list_val;

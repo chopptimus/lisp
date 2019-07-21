@@ -39,8 +39,11 @@ void type_repr(const Object *obj)
         case FUNCTION:
             printf("FUNCTION\n");
             break;
-        case NUMBER:
-            printf("NUMBER\n");
+        case LONG:
+            printf("LONG\n");
+            break;
+        case FLOAT:
+            printf("FLOAT\n");
             break;
         case STRING:
             printf("STRING\n");
@@ -57,8 +60,11 @@ void repr(const Object *obj)
         case LIST:
             list_repr(obj->list_val);
             break;
-        case NUMBER:
-            printf("%d", obj->int_val);
+        case LONG:
+            printf("%d", obj->long_val);
+            break;
+        case FLOAT:
+            printf("%f", obj->float_val);
             break;
         case SYMBOL:
             printf("%s", obj->sym_val);
@@ -156,26 +162,41 @@ List *read_list(List *list, Tokens *tokens)
 
 Object *read(Object *obj, Tokens *tokens)
 {
-    if (strcmp(THEAD(tokens), "(") == 0) {
+    char *tok = THEAD(tokens);
+    if (strcmp(tok, "(") == 0) {
         tokens->head++;
         List *list = malloc(sizeof(List));
         list = read_list(list, tokens);
         obj->type = LIST;
         obj->list_val = list;
-    } else if (isdigit(THEAD(tokens)[0])) {
-        obj->type = NUMBER;
-        obj->int_val = atoi(THEAD(tokens));
+        return obj;
+    }
+
+    char **endptr = malloc(sizeof(char **));
+    size_t len = strlen(tok);
+    long long_val = strtol(tok, endptr, 10);
+    if (*endptr == &tok[len]) {
+        obj->type = LONG;
+        obj->long_val = long_val;
         tokens->head++;
+        return obj;
+    }
+
+    float float_val = strtof(THEAD(tokens), endptr);
+    if (*endptr != THEAD(tokens)) {
+        obj->type = FLOAT;
+        obj->float_val = float_val;
+        tokens->head++;
+        return obj;
     } else {
         obj->type = SYMBOL;
-        size_t len = strlen(THEAD(tokens));
         char *symbol = malloc(sizeof(char) * (len + 1));
         strcpy(symbol, THEAD(tokens));
         symbol[len] = 0;
         obj->sym_val = symbol;
         tokens->head++;
+        return obj;
     }
-    return obj;
 }
 
 Object *get(char *k, Table *t)
@@ -213,20 +234,118 @@ List *cons(List *l, Object *o)
 
 Object *plus(List *args)
 {
-    int total = 0;
+    Object *result = malloc(sizeof(Object));
+    int long_total = 0;
     Object *first;
     while (args) {
         first = args->first;
-        if (first->type != NUMBER) {
-            printf("Args to + must be numbers.\n");
+        if (first->type == FLOAT) {
+            result->type = FLOAT;
+            float float_total = long_total;
+            float_total += first->float_val;
+            args = args->rest;
+            while (args) {
+                first = args->first;
+                if (first->type == FLOAT) {
+                    float_total += first->float_val;
+                } else if (first->type == LONG){
+                    float_total += first->long_val;
+                } else {
+                    printf("Args to + must be float or int.\n");
+                    exit(1);
+                }
+                args = args->rest;
+            }
+            result->float_val = float_total;
+            return result;
+        } else if (first->type == LONG) {
+            long_total += first->long_val;
+            args = args->rest;
+        } else {
+            printf("Args to + must be float or long.\n");
             exit(1);
-        };
-        total += first->int_val;
-        args = args->rest;
+        }
     }
+    result->type = LONG;
+    result->long_val = long_total;
+    return result;
+}
+
+Object *mult(List *args)
+{
     Object *result = malloc(sizeof(Object));
-    result->type = NUMBER;
-    result->int_val = total;
+    int long_total = 1;
+    Object *first;
+    while (args) {
+        first = args->first;
+        if (first->type == FLOAT) {
+            result->type = FLOAT;
+            float float_total = long_total;
+            float_total *= first->float_val;
+            args = args->rest;
+            while (args) {
+                first = args->first;
+                if (first->type == FLOAT) {
+                    float_total *= first->float_val;
+                } else if (first->type == LONG){
+                    float_total *= first->long_val;
+                } else {
+                    printf("Args to * must be float or int.\n");
+                    exit(1);
+                }
+                args = args->rest;
+            }
+            result->float_val = float_total;
+            return result;
+        } else if (first->type != LONG) {
+            printf("Args to * must be float or int.\n");
+            exit(1);
+        } else {
+            long_total *= first->long_val;
+            args = args->rest;
+        }
+    }
+    result->type = LONG;
+    result->long_val = long_total;
+    return result;
+}
+
+Object *divide(List *args)
+{
+    Object *result = malloc(sizeof(Object));
+    int long_total = 1;
+    Object *first;
+    while (args) {
+        first = args->first;
+        if (first->type == FLOAT) {
+            result->type = FLOAT;
+            float float_total = long_total;
+            float_total /= first->float_val;
+            args = args->rest;
+            while (args) {
+                first = args->first;
+                if (first->type == FLOAT) {
+                    float_total /= first->float_val;
+                } else if (first->type == LONG){
+                    float_total /= first->long_val;
+                } else {
+                    printf("Args to / must be float or int.\n");
+                    exit(1);
+                }
+                args = args->rest;
+            }
+            result->float_val = float_total;
+            return result;
+        } else if (first->type == LONG) {
+            long_total /= first->long_val;
+            args = args->rest;
+        } else {
+            printf("Args to / must be float or long.\n");
+            exit(1);
+        }
+    }
+    result->type = LONG;
+    result->long_val = long_total;
     return result;
 }
 
@@ -239,13 +358,8 @@ Object *apply(Function *fn, List *arguments)
 
 void eval_sequence(List *args, Environment *env)
 {
-    Object *first;
-    Object *result;
     while (args) {
-        first = args->first;
-        result = eval(first, env);
-        type_repr(result);
-        args->first = result;
+        args->first = eval(args->first, env);
         args = args->rest;
     }
 }
@@ -259,6 +373,9 @@ Object *eval(Object *obj, Environment *env)
             if (strcmp(first->sym_val, "+") == 0) {
                 eval_sequence(args, env);
                 return plus(args);
+            } else if (strcmp(first->sym_val, "*") == 0) {
+                eval_sequence(args, env);
+                return mult(args);
             }
         }
 
@@ -269,7 +386,7 @@ Object *eval(Object *obj, Environment *env)
         return apply(fn->fn_val, cdr(obj));
     } else if (obj->type == SYMBOL) {
         return resolve(obj->sym_val, env);
-    } else if (obj->type == NUMBER) {
+    } else if (obj->type == LONG || obj->type == FLOAT) {
         return obj;
     }
     return NULL;
