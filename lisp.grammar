@@ -1,0 +1,7 @@
+program: /^/ <sexp> /$/;
+sexp: <atom> | <list> ;
+list: '(' <sexp> <sexp>* ')';
+atom: <float> | <int> | <symbol>; 
+float: /[0-9]+\.[0-9]+/;
+int: /[0-9]+/;
+symbol: /[^ (),\n\t]+/;

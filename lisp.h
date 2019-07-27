@@ -42,9 +42,9 @@ typedef struct list {
 } List;
 
 typedef struct function {
-    Environment *env;
-    char *name;
     struct object *body;
+    Environment *env;
+    List *parameters;
 } Function;
 
 typedef struct object {

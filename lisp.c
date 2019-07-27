@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lisp.h"
+#include "mpc.h"
 
 #define THEAD(t) t->tokens[t->head]
 
