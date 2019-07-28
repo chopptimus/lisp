@@ -1,7 +1,10 @@
-program: /^/ <sexp> /$/;
-sexp: <atom> | <list> ;
-list: '(' <sexp> <sexp>* ')';
-atom: <float> | <int> | <symbol>; 
+program: /^/ (<variable_definition> | <expression>) /$/;
 float: /[0-9]+\.[0-9]+/;
 int: /[0-9]+/;
-symbol: /[^ (),\n\t]+/;
+identifier: /[^ (),\n\t]+/;
+application: '(' <expression> <expression>* ')';
+expression: <float> | <int> | <identifier> | <application>;
+
+variable: <identifier>;
+variable_definition: '(' "define" <variable> <expression> ')'
+    | '(' "define" '(' <variable> <variable>* ')' <expression>+ ')';

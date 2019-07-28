@@ -10,6 +10,16 @@
 #define car(l) l->list_val->first
 #define cdr(l) l->list_val->rest
 
+#define CLEANUP mpc_cleanup(8, \
+        program_parser, \
+        expression_parser, \
+        application_parser, \
+        int_parser, \
+        float_parser, \
+        identifier_parser, \
+        variable_parser, \
+        variable_definition_parser)
+
 void repr(const Object *obj);
 
 void list_repr(const List *list)
@@ -78,126 +88,57 @@ void repr(const Object *obj)
     }
 }
 
-char *capture_token(const char *s, size_t n)
+Object *ast_read(mpc_ast_trav_t **);
+
+int list_has_elements_left(mpc_ast_trav_t *trav)
 {
-    char *tok = malloc(sizeof(char) * (n + 1));
-    strncpy(tok, s, n);
-    tok[n] = 0;
-    return tok;
+    int cchild = trav->parent->curr_child;
+    mpc_ast_t *next = trav->parent->curr_node->children[--cchild];
+    return strcmp(next->tag, "char");
 }
 
-Tokens tokenize(const char *s, size_t n)
+List *ast_read_application(mpc_ast_trav_t **trav)
 {
-    char **tokens = malloc(sizeof(char *) * n);
-    int j = 0;
-    int start = 0;
-    for (int i = 0; i < n; i++) {
-        if (s[i] == '(' || s[i] == ')') {
-            size_t len = i - start;
-            if (len > 0) {
-                tokens[j] = capture_token(&s[start], len);
-                j++;
-            }
-            tokens[j] = capture_token(&s[i], 1);
-            j++;
-            start = i + 1;
-        } else if (s[i] == ' ') {
-            size_t len = i - start;
-            if (len > 0) {
-                tokens[j] = capture_token(&s[start], len);
-                j++;
-            }
-            start = i + 1;
-        }
-    }
-    if (start != n) {
-        tokens[j] = capture_token(&s[start], n - start - 1);
-        j++;
-    }
-
-    tokens = realloc(tokens, sizeof(char *) * j);
-    return (Tokens) { .tokens = tokens, .size = j, .head = 0 };
-}
-
-Object *read(Object *obj, Tokens *tokens);
-
-List *read_list(List *list, Tokens *tokens)
-{
-    if (tokens->size < 1) {
-        printf("List must have at least 2 tokens.\n");
-        exit(1);
-    } else if (strcmp(THEAD(tokens), ")") == 0) {
-        list = NULL;
-        tokens->head += 2;
-        return list;
-    } else if (tokens->size < 2) {
-        printf("If list isn't empty, it must contain at least 3 tokens\n");
-        exit(1);
-    }
-
-    Object *obj = malloc(sizeof(Object));
+    mpc_ast_traverse_next(trav); // Consume the open paren
+    List *list = malloc(sizeof(List));
     List *first = list;
-
-    first->first = read(obj, tokens);
+    first->first = ast_read(trav);
     first->rest = NULL;
-
-    char *token = THEAD(tokens);
-    while (strcmp(token, ")") != 0) {
+    while (list_has_elements_left(*trav)) {
         first->rest = malloc(sizeof(List));
         first = first->rest;
-        obj = malloc(sizeof(Object));
-        first->first = read(obj, tokens);
+        first->first = ast_read(trav);
         first->rest = NULL;
-
-        if (tokens->head == tokens->size) {
-            // Reaching the end of the input without a closing paren is an error.
-            printf("No closing paren.\n");
-            exit(1);
-        }
-        token = THEAD(tokens);
     }
-
-    tokens->head++; // Closing paren;
+    mpc_ast_traverse_next(trav); // Consume the closing paren
     return list;
 }
 
-Object *read(Object *obj, Tokens *tokens)
+Object *ast_read(mpc_ast_trav_t **trav)
 {
-    char *tok = THEAD(tokens);
-    if (strcmp(tok, "(") == 0) {
-        tokens->head++;
-        List *list = malloc(sizeof(List));
-        list = read_list(list, tokens);
-        obj->type = LIST;
-        obj->list_val = list;
-        return obj;
-    }
-
-    char **endptr = malloc(sizeof(char **));
-    size_t len = strlen(tok);
-    long long_val = strtol(tok, endptr, 10);
-    if (*endptr == &tok[len]) {
-        obj->type = LONG;
-        obj->long_val = long_val;
-        tokens->head++;
-        return obj;
-    }
-
-    float float_val = strtof(THEAD(tokens), endptr);
-    if (*endptr != THEAD(tokens)) {
-        obj->type = FLOAT;
-        obj->float_val = float_val;
-        tokens->head++;
-        return obj;
-    } else {
-        obj->type = SYMBOL;
+    mpc_ast_t *next = mpc_ast_traverse_next(trav);
+    Object *result = malloc(sizeof(Object));
+    if (strcmp(next->tag, "expression|application|>") == 0) {
+        result->type = LIST;
+        result->list_val = ast_read_application(trav);
+        return result;
+    } else if (strcmp(next->tag, "expression|int|regex") == 0) {
+        result->type = LONG;
+        result->long_val = strtol(next->contents, NULL, 10);
+        return result;
+    } else if (strcmp(next->tag, "expression|float|regex") == 0) {
+        result->type = FLOAT;
+        result->float_val = strtof(next->contents, NULL);
+        return result;
+    } else if (strcmp(next->tag, "expression|identifier|regex") == 0) {
+        result->type = SYMBOL;
+        size_t len = strlen(next->contents);
         char *symbol = malloc(sizeof(char) * (len + 1));
-        strcpy(symbol, THEAD(tokens));
-        symbol[len] = 0;
-        obj->sym_val = symbol;
-        tokens->head++;
-        return obj;
+        strcpy(symbol, next->contents);
+        result->sym_val = symbol;
+        return result;
     }
+    return NULL;
 }
 
 Object *get(char *k, Table *t)
@@ -398,25 +339,44 @@ int main(int args, char *argv[])
     if (args != 2)
         exit(1);
 
-    FILE *f = fopen(argv[1], "rb"); // Error handling?
-    fseek(f, 0, SEEK_END);
-    long fsize = ftell(f);
-    rewind(f);
+    mpc_parser_t *program_parser = mpc_new("program");
+    mpc_parser_t *expression_parser = mpc_new("expression");
+    mpc_parser_t *application_parser = mpc_new("application");
+    mpc_parser_t *int_parser = mpc_new("int");
+    mpc_parser_t *float_parser = mpc_new("float");
+    mpc_parser_t *identifier_parser = mpc_new("identifier");
+    mpc_parser_t *variable_parser = mpc_new("variable");
+    mpc_parser_t *variable_definition_parser = mpc_new("variable_definition");
 
-    char *program = malloc(fsize + 1);
-    fread(program, 1, fsize, f);
-    fclose(f);
+    mpca_lang_contents(MPCA_LANG_DEFAULT, "lisp.grammar",
+            program_parser,
+            expression_parser,
+            application_parser,
+            int_parser,
+            float_parser,
+            identifier_parser,
+            variable_parser,
+            variable_definition_parser,
+            NULL);
 
-    if (fsize == 0)
-        exit(0);
+    mpc_result_t ast_r;
 
-    program[fsize] = 0;
+    if (mpc_parse_contents(argv[1], program_parser, &ast_r)) {
+        mpc_ast_print(ast_r.output);
+    } else {
+        mpc_err_print(ast_r.error);
+        mpc_err_delete(ast_r.error);
+        CLEANUP;
+        return 1;
+    }
 
-    Tokens tokens = tokenize(program, fsize);
-    Object obj;
-    read(&obj, &tokens);
+    mpc_ast_trav_t *trav = mpc_ast_traverse_start(ast_r.output,
+            mpc_ast_trav_order_pre);
 
-    repr(&obj);
+    mpc_ast_traverse_next(&trav);
+    mpc_ast_traverse_next(&trav);
+    Object *r = ast_read(&trav);
+    repr(r);
     printf("\n");
 
     Table table;
@@ -428,8 +388,10 @@ int main(int args, char *argv[])
     env.table = &table;
     env.parent = NULL;
 
-    Object *result = eval(&obj, &env);
+    Object *result = eval(r, &env);
 
     repr(result);
     printf("\n");
+
+    CLEANUP;
 }
